@@ -1,35 +1,35 @@
 %% Box-Jenkins model evaluation only for TF part
-%look up table generation
-function  M=BJTFEval(model,u,y)
-    
-    if strcmp(class(model),'idtf')==1
-        numBJ=model.Numerator;
-        denBJ=model.Denominator;
-    else
-    %box jenkins model M3 just with tf part consideration
-        numBJ=model.B;
-        denBJ=model.F;
-    end
-   
-    %evaluating the difference equation
+function  M=BJTFEvalRand(model,u,y,nRounded)
+    B=model.B;
+    F=model.F;
+    BD=B;
+    FD=F;
+   %evaluating the difference equation
     yMean=mean(y); uMean=mean(u);
     %fourth order BJ transfer function
-    uk=u-uMean;                           %input vector minus mean
-    yk=y-yMean;                           %output vector minus mean
+    uk=u;                           %input vector minus mean
+    yk=y;                     
     ykBJ=zeros(1,length(yk));       
-    ykBJ(1:5)=yk(1:5);                %BJ just tf output vector first 5 elements equal
+    ykBJ(1:length(FD))=yk(1:length(FD));                %BJ just tf output vector first 5 elements equal
     ykBJTable=ykBJ;                 %Look up table with unmodeled behavior of the model
 
-    for i=6:length(y)
-
-        ykA= numBJ(1)*uk(i)+ numBJ(2)*uk(i-1) + numBJ(3)*uk(i-2) +numBJ(4)*uk(i-3)+numBJ(5)*uk(i-4); %input based BJ model
-        ykB= denBJ(2)*yk(i-1) + denBJ(3)*yk(i-2) +denBJ(4)*yk(i-3)+denBJ(5)*yk(i-4);                 %output based BJ model
-        ykBJ(i)=ykA-ykB;
-
-        ykBJTable(i)=y(i)-ykBJ(i)-yMean;  %look up table calculation
-
+    for i=length(FD)+1:length(y)
+        ykU=0; ykE=0;ykY=0;
+        
+        for j=0:length(BD)-1
+            ykU=BD(j+1)*uk(i-j)  +ykU; %input
+             ykE=CF(j+1)*e(i-j)   +ykE; %white noise
+        end
+        for k=2:length(FD)
+             ykYa=-FD(k)*yk(i-k+1);    %output
+             ykY=ykYa+ykY;
+             [i k i-k+1 ykY];
+        end
+        ykBJ(i)=ykU+ykE+ykY;
+  
     end
-    ykBJTable(1:5)=y(1:5);                %BJ just tf output vector first 5 elements equal
-    M=round(ykBJTable',1);
-
+    ykBJTable=y-ykBJ';%-yMean;  %look up table calculation
+    ykBJTable(1:length(FD),1)=y(1:length(FD),1);                %BJ just tf output vector first 5 elements equal
+    ykBJTable=ykBJTable';
+    M=round(ykBJTable',nRounded);
 end
